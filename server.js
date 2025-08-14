@@ -45,23 +45,26 @@ function parseEOBData(text) {
       continue;
     }
     
-    // Check if this is a new patient record
-    const nameMatch = line.match(/^NAME\s+([A-Z,\s]+)\s+MID\s+([A-Z0-9]+)\s+ACNT\s+([A-Z0-9X]+)\s+ICN\s+(\d+)\s+ASG\s+([YN])\s+MOA\s+(.+)$/);
+    // Check if this is a new patient record - Updated regex pattern
+    const nameMatch = line.match(/^NAME\s+([A-Z]+),\s+([A-Z]+)\s+([A-Z]?)\s*MID\s+(\w+)\s+ACNT\s+(\w+)\s+ICN\s+(\d+)\s+ASG\s+([YN])\s+MOA\s+(.+)$/);
     
     if (nameMatch) {
       // Save previous record if exists
-      if (currentRecord && currentRecord.claims && currentRecord.claims.length > 0) {
+      if (currentRecord && (currentRecord.claims.length > 0 || currentRecord.totalBilled > 0)) {
         records.push(currentRecord);
       }
       
       // Start new record
       currentRecord = {
-        patientName: nameMatch[1].trim(),
-        mid: nameMatch[2],
-        accountNumber: nameMatch[3],
-        icn: nameMatch[4],
-        assignment: nameMatch[5],
-        moa: nameMatch[6],
+        lastName: nameMatch[1].trim(),
+        firstName: nameMatch[2].trim(),
+        middleInitial: nameMatch[3] ? nameMatch[3].trim() : '',
+        patientName: `${nameMatch[2]} ${nameMatch[1]}${nameMatch[3] ? ' ' + nameMatch[3] : ''}`,
+        mid: nameMatch[4],
+        accountNumber: nameMatch[5],
+        icn: nameMatch[6],
+        assignment: nameMatch[7],
+        moa: nameMatch[8],
         claims: [],
         totalBilled: 0,
         totalAllowed: 0,
@@ -70,6 +73,7 @@ function parseEOBData(text) {
         totalAdjustments: 0,
         providerPaid: 0,
         patientResponsibility: 0,
+        netAmount: 0,
         forwardedTo: ''
       };
       processingClaim = true;
@@ -125,24 +129,25 @@ function parseEOBData(text) {
         continue;
       }
       
-      // Parse individual claim lines
-      const claimMatch = line.match(/^(\d+)\s+(\d{4})\s+(\d{6})\s+(\d+)\s+([\d.]+)\s+(\w+)\s*(.*)s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(.+)\s+([\d.]+)/);
+      // Parse individual claim lines - Updated regex pattern for Novitas format
+      const claimMatch = line.match(/^(\d{10})\s+(\d{4})\s+(\d{6})\s+(\d+)\s+([\d.]+)\s+(\w+)\s*([\w\s]*?)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([A-Z]+-\d+)\s+([\d.]+)\s+([\d.]+)/);
       
       if (claimMatch) {
         const claim = {
-          providerNumber: claimMatch[1],
+          providerNPI: claimMatch[1],
           dateFrom: claimMatch[2],
           dateThrough: claimMatch[3],
           placeOfService: claimMatch[4],
           quantity: parseFloat(claimMatch[5]),
           procedureCode: claimMatch[6],
-          modifiers: claimMatch[7].trim(),
+          modifiers: claimMatch[7] ? claimMatch[7].trim() : '',
           billed: parseFloat(claimMatch[8]),
           allowed: parseFloat(claimMatch[9]),
           deductible: parseFloat(claimMatch[10]),
           coinsurance: parseFloat(claimMatch[11]),
-          adjustments: claimMatch[12],
-          providerPaid: parseFloat(claimMatch[13])
+          adjustmentCode: claimMatch[12],
+          adjustmentAmount: parseFloat(claimMatch[13]),
+          providerPaid: parseFloat(claimMatch[14])
         };
         
         currentRecord.claims.push(claim);
@@ -151,7 +156,7 @@ function parseEOBData(text) {
   }
   
   // Save the last record
-  if (currentRecord && currentRecord.claims && currentRecord.claims.length > 0) {
+  if (currentRecord && (currentRecord.claims.length > 0 || currentRecord.totalBilled > 0)) {
     records.push(currentRecord);
   }
   
@@ -166,6 +171,9 @@ function convertToCSV(records) {
   
   const headers = [
     'Patient Name',
+    'First Name',
+    'Last Name',
+    'Middle Initial',
     'MID',
     'Account Number',
     'ICN',
@@ -188,6 +196,9 @@ function convertToCSV(records) {
   records.forEach(record => {
     const row = [
       `"${record.patientName}"`,
+      `"${record.firstName}"`,
+      `"${record.lastName}"`,
+      `"${record.middleInitial}"`,
       record.mid,
       record.accountNumber,
       record.icn,
