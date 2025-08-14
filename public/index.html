@@ -251,11 +251,11 @@
             </div>
 
             <div class="upload-section" id="uploadSection">
-                <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf">
                 <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                    📄 Select Medicare EOB PDF Files
+                    📄 Select Medicare EOB PDF File
                 </button>
-                <p>or drag and drop PDF files here</p>
+                <p>or drag and drop a PDF file here</p>
                 <div class="file-info" id="fileInfo"></div>
             </div>
 
@@ -325,10 +325,10 @@
         }
 
         function showFileInfo(files) {
-            const fileNames = Array.from(files).map(file => file.name).join(', ');
+            const file = files[0];
             fileInfo.innerHTML = `
-                <strong>Selected files:</strong> ${fileNames}<br>
-                <strong>Total files:</strong> ${files.length}
+                <strong>Selected file:</strong> ${file.name}<br>
+                <strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB
             `;
             fileInfo.style.display = 'block';
         }
@@ -356,15 +356,14 @@
             results.style.display = 'none';
 
             const formData = new FormData();
+            const file = files[0];
             
-            for (let i = 0; i < files.length; i++) {
-                if (files[i].type !== 'application/pdf') {
-                    showError('Please select only PDF files.');
-                    loading.style.display = 'none';
-                    return;
-                }
-                formData.append('pdf', files[i]);
+            if (file.type !== 'application/pdf') {
+                showError('Please select only PDF files.');
+                loading.style.display = 'none';
+                return;
             }
+            formData.append('pdf', file);
 
             try {
                 const response = await fetch('/upload', {
@@ -389,7 +388,7 @@
 
         function showResults(data) {
             document.getElementById('resultsCount').textContent = 
-                `Successfully extracted ${data.recordCount} patient records from ${data.records.length} files`;
+                `Successfully extracted ${data.recordCount} patient records`;
 
             // Calculate statistics
             let totalBilled = 0;

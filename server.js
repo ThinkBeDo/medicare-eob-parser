@@ -35,6 +35,8 @@ function parseEOBData(text) {
   let currentRecord = null;
   let processingClaim = false;
   
+  console.log('Total lines to process:', lines.length);
+  
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     
@@ -45,10 +47,27 @@ function parseEOBData(text) {
       continue;
     }
     
-    // Check if this is a new patient record - Updated regex pattern
-    const nameMatch = line.match(/^NAME\s+([A-Z]+),\s+([A-Z]+)\s+([A-Z]?)\s*MID\s+(\w+)\s+ACNT\s+(\w+)\s+ICN\s+(\d+)\s+ASG\s+([YN])\s+MOA\s+(.+)$/);
+    // Check if this is a new patient record - More flexible regex patterns
+    // Try different patterns to match various EOB formats
+    let nameMatch = line.match(/^NAME\s+([A-Z]+),\s+([A-Z]+)\s+([A-Z]?)\s*MID\s+(\w+)\s+ACNT\s+(\w+)\s+ICN\s+(\d+)\s+ASG\s+([YN])\s+MOA\s+(.+)$/);
+    
+    // Try alternative pattern without spaces after commas
+    if (!nameMatch) {
+      nameMatch = line.match(/^NAME\s+([A-Z]+),([A-Z]+)\s*([A-Z]?)\s*MID\s+(\w+)\s+ACNT\s+(\w+)\s+ICN\s+(\d+)\s+ASG\s+([YN])\s+MOA\s+(.+)$/);
+    }
+    
+    // Try pattern with flexible spacing
+    if (!nameMatch) {
+      nameMatch = line.match(/^NAME\s+([A-Z]+),\s*([A-Z]+)\s*([A-Z]?)\s*MID\s+(\w+)\s+ACNT\s+(\w+)\s+ICN\s+(\d+)\s+ASG\s+([YN])\s+MOA\s*(.*)$/);
+    }
+    
+    // Log if line starts with NAME but doesn't match
+    if (!nameMatch && line.startsWith('NAME')) {
+      console.log('NAME line found but not matching pattern:', line);
+    }
     
     if (nameMatch) {
+      console.log('Successfully parsed NAME line:', line);
       // Save previous record if exists
       if (currentRecord && (currentRecord.claims.length > 0 || currentRecord.totalBilled > 0)) {
         records.push(currentRecord);
@@ -234,14 +253,23 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
     }
     
     console.log('Processing PDF file:', req.file.originalname);
+    console.log('File size:', req.file.size, 'bytes');
     
     // Parse PDF
     const pdfData = await pdfParse(req.file.buffer);
     console.log('Extracted text length:', pdfData.text.length);
     
+    // Log first 500 characters of extracted text for debugging
+    console.log('First 500 chars of extracted text:', pdfData.text.substring(0, 500));
+    
     // Parse EOB data
     const records = parseEOBData(pdfData.text);
     console.log('Extracted records:', records.length);
+    
+    // Log sample record for debugging if any records found
+    if (records.length > 0) {
+      console.log('Sample record:', JSON.stringify(records[0], null, 2));
+    }
     
     if (records.length === 0) {
       return res.json({
