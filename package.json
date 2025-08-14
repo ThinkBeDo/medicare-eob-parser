@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "start:secure": "node server-secure.js",
+    "dev": "node server.js",
+    "dev:secure": "node server-secure.js"
   },
   "keywords": [
     "medicare",
@@ -18,10 +20,18 @@
   "author": "ThinkBeDo",
   "license": "MIT",
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.0.1",
+    "express-session": "^1.18.2",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "pdf-parse": "^1.1.1",
-    "cors": "^2.8.5"
+    "winston": "^3.17.0"
   },
   "engines": {
     "node": ">=18.0.0"
