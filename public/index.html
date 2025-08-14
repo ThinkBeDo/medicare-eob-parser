@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medicare EOB PDF Parser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .upload-section {
+            margin-bottom: 40px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 15px;
+            padding: 60px 40px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #e8f0fe;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .upload-subtext {
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            display: none;
+            margin-top: 40px;
+        }
+        
+        .results-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 5px solid #28a745;
+        }
+        
+        .results-header h2 {
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            border-top: 4px solid #667eea;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .download-section {
+            text-align: center;
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .records-preview {
+            margin-top: 30px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+        }
+        
+        .record-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .record-item:last-child {
+            border-bottom: none;
+        }
+        
+        .record-item:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .patient-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .patient-details {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .amount {
+            font-weight: 600;
+            color: #28a745;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #dc3545;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .upload-area {
+                padding: 40px 20px;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Medicare EOB Parser</h1>
+            <p>Extract patient records from Medicare Explanation of Benefits PDFs</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Drop your Medicare EOB PDF here</div>
+                    <div class="upload-subtext">or click to browse</div>
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">
+                        Select PDF File
+                    </button>
+                </div>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf">
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing PDF and extracting patient records...</p>
+            </div>
+            
+            <div class="results" id="results">
+                <div class="results-header">
+                    <h2>✅ Extraction Complete</h2>
+                    <p id="resultsMessage"></p>
+                </div>
+                
+                <div class="stats" id="stats">
+                    <!-- Stats will be populated by JavaScript -->
+                </div>
+                
+                <div class="download-section">
+                    <h3>📊 Download Results</h3>
+                    <p>Your extracted data is ready for download</p>
+                    <button class="btn" id="downloadBtn">Download CSV</button>
+                </div>
+                
+                <div class="records-preview" id="recordsPreview">
+                    <!-- Records preview will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <div class="error" id="errorDiv" style="display: none;">
+                <h3>❌ Error</h3>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentCSVData = '';
+        
+        // File input handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const errorDiv = document.getElementById('errorDiv');
+        
+        // Drag and drop handling
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                handleFileUpload(files[0]);
+            } else {
+                showError('Please upload a valid PDF file.');
+            }
+        });
+        
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+        
+        async function handleFileUpload(file) {
+            if (file.type !== 'application/pdf') {
+                showError('Please upload a PDF file.');
+                return;
+            }
+            
+            hideError();
+            hideResults();
+            showLoading();
+            
+            const formData = new FormData();
+            formData.append('pdf', file);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                hideLoading();
+                
+                if (result.success) {
+                    showResults(result);
+                } else {
+                    showError(result.message || 'Failed to process PDF');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('Network error: ' + error.message);
+            }
+        }
+        
+        function showLoading() {
+            loading.style.display = 'block';
+        }
+        
+        function hideLoading() {
+            loading.style.display = 'none';
+        }
+        
+        function showResults(data) {
+            currentCSVData = data.csvData;
+            
+            document.getElementById('resultsMessage').textContent = data.message;
+            
+            // Calculate stats
+            const records = data.records || [];
+            const totalBilled = records.reduce((sum, r) => sum + (r.totalBilled || 0), 0);
+            const totalPaid = records.reduce((sum, r) => sum + (r.providerPaid || 0), 0);
+            const avgPerRecord = records.length > 0 ? totalPaid / records.length : 0;
+            
+            // Display stats
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${data.recordCount}</div>
+                    <div class="stat-label">Patient Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">$${totalBilled.toLocaleString()}</div>
+                    <div class="stat-label">Total Billed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">$${totalPaid.toLocaleString()}</div>
+                    <div class="stat-label">Total Paid</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">$${avgPerRecord.toFixed(2)}</div>
+                    <div class="stat-label">Avg Per Record</div>
+                </div>
+            `;
+            
+            // Display records preview
+            const preview = records.slice(0, 10).map(record => `
+                <div class="record-item">
+                    <div>
+                        <div class="patient-name">${record.patientName}</div>
+                        <div class="patient-details">MID: ${record.mid} | ICN: ${record.icn}</div>
+                    </div>
+                    <div class="amount">$${(record.providerPaid || 0).toFixed(2)}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('recordsPreview').innerHTML = preview;
+            
+            if (records.length > 10) {
+                document.getElementById('recordsPreview').innerHTML += `
+                    <div class="record-item" style="text-align: center; font-style: italic; color: #666;">
+                        ... and ${records.length - 10} more records
+                    </div>
+                `;
+            }
+            
+            results.style.display = 'block';
+        }
+        
+        function hideResults() {
+            results.style.display = 'none';
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function hideError() {
+            errorDiv.style.display = 'none';
+        }
+        
+        // Download CSV
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (!currentCSVData) {
+                showError('No data to download');
+                return;
+            }
+            
+            const blob = new Blob([currentCSVData], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `medicare-eob-records-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
