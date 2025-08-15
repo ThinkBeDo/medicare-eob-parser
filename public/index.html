@@ -217,6 +217,31 @@
             margin-bottom: 5px;
         }
 
+        .cpt-summary {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .cpt-text-list {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #1e293b;
+        }
+
+        .cpt-summary-line {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+        }
+
+        .cpt-summary-line:last-child {
+            border-bottom: none;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -271,6 +296,11 @@
                 <div class="results-header">
                     <h2>✅ Processing Complete!</h2>
                     <p id="resultsCount"></p>
+                </div>
+
+                <div class="cpt-summary">
+                    <h3>🔢 CPT Code Summary</h3>
+                    <div class="cpt-text-list" id="cptTextList"></div>
                 </div>
 
                 <div class="results-stats" id="resultsStats"></div>
@@ -389,6 +419,26 @@
         function showResults(data) {
             document.getElementById('resultsCount').textContent = 
                 `Successfully extracted ${data.recordCount} patient records`;
+
+            // Analyze CPT frequency
+            const cptFrequency = {};
+            data.records.forEach(record => {
+                if (record.claims && record.claims.length > 0) {
+                    record.claims.forEach(claim => {
+                        if (claim.procedureCode) {
+                            cptFrequency[claim.procedureCode] = (cptFrequency[claim.procedureCode] || 0) + 1;
+                        }
+                    });
+                }
+            });
+
+            // Sort by frequency and display CPT codes
+            const sortedCpts = Object.entries(cptFrequency)
+                .sort(([,a], [,b]) => b - a)
+                .map(([cpt, count]) => `<div class="cpt-summary-line">${cpt} - ${count}</div>`)
+                .join('');
+
+            document.getElementById('cptTextList').innerHTML = sortedCpts || '<div>No CPT codes found</div>';
 
             // Calculate statistics
             let totalBilled = 0;
