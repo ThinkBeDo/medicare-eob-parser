@@ -188,6 +188,35 @@ function convertToCSV(records) {
     return 'No records found';
   }
   
+  // First, analyze CPT frequency across all records
+  const cptFrequency = {};
+  records.forEach(record => {
+    if (record.claims && record.claims.length > 0) {
+      record.claims.forEach(claim => {
+        if (claim.procedureCode) {
+          cptFrequency[claim.procedureCode] = (cptFrequency[claim.procedureCode] || 0) + 1;
+        }
+      });
+    }
+  });
+  
+  // Sort CPT codes by frequency (descending)
+  const sortedCpts = Object.entries(cptFrequency)
+    .sort(([,a], [,b]) => b - a);
+  
+  // Start CSV with CPT Code Summary section
+  let csv = 'CPT CODE SUMMARY\n';
+  csv += 'CPT Code,Times Billed\n';
+  
+  // Add each CPT code and its count
+  sortedCpts.forEach(([cpt, count]) => {
+    csv += `${cpt},${count}\n`;
+  });
+  
+  // Add empty line separator
+  csv += '\n';
+  
+  // Now add the patient records section
   const headers = [
     'Patient Name',
     'First Name',
@@ -210,7 +239,7 @@ function convertToCSV(records) {
     'Claims Count'
   ];
   
-  let csv = headers.join(',') + '\n';
+  csv += headers.join(',') + '\n';
   
   records.forEach(record => {
     const row = [
